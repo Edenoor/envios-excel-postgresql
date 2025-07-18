@@ -22,12 +22,10 @@ const ShipmentList = () => {
 
   const enviarDatos = async () => {
     try {
-      const filas = data.map((row) => Object.values(row));
-
       const res = await fetch("http://localhost:5000/api/envios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(filas),
+        body: JSON.stringify(data),
       });
 
       if (!res.ok) throw new Error("Error al guardar");

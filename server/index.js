@@ -343,6 +343,31 @@ app.post("/recovery", async (req, res) => {
   }
 })
 
+app.post("/update", async (req, res) => {
+  const username = req.body.username
+  const password = req.body.password
+  const hash = await bcrypt.hash(password, 10);
+
+  try {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await pool.query(
+      `UPDATE users SET password = $1 WHERE username = $2`,
+      [hash, username]
+    )
+
+    await client.query("COMMIT");
+    client.release();
+    res.json({status: 'ok', message: 'Su nueva contraseña es ' + password});
+  } catch (error) {
+    console.error("❌ Error actualizar contraseña:", error);
+    res.status(500).json({ ok: false, error: error.message });
+    await client.query("ROLLBACK");
+    client.release();
+  }
+})
+
 createDB()
 // Iniciar el servidor
 app.listen(port, () => {

@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const bcrypt = require('bcryptjs')
 const { Pool } = require("pg");
 
 const app = express();
@@ -18,6 +19,69 @@ const pool = new Pool({
   password: "postgre",
   port: 5432,
 });
+
+const createDB = async () => {
+    const createTableEnviosSQL = `
+    CREATE TABLE IF NOT EXISTS envios (
+      numero_tracking NUMBER,
+      id_venta_ml TEXT,
+      usuario_ml_id TEXT,
+      fecha_venta TEXT,
+      fecha_colecta TEXT,
+      fecha_wyn_flex TEXT,
+      metodo_envio TEXT,
+      cod_cliente TEXT,
+      razon_social TEXT,
+      nombre_fantasia TEXT,
+      nombre_destinatario TEXT,
+      tel_destinatario TEXT,
+      email_destinatario TEXT,
+      comentario_destino TEXT,
+      direccion TEXT,
+      cp TEXT,
+      localidad TEXT,
+      provincia TEXT,
+      latitud TEXT,
+      longitud TEXT,
+      estado TEXT,
+      fecha_estado TEXT,
+      quien_estado TEXT,
+      costo_envio TEXT,
+      cadete TEXT,
+      fecha_asignacion TEXT,
+      zonas TEXT,
+      zonas_costos TEXT,
+      observaciones TEXT,
+      url_tracking TEXT,
+      origen TEXT,
+      total TEXT,
+      zona TEXT,
+      precio_cliente TEXT,
+      precio_chofer TEXT,
+      porcentaje_chofer TEXT,
+      neto_chofer TEXT,
+      ganancia TEXT,
+      descuento TEXT,
+      ganancia_real TEXT
+    );
+  `;
+  const createTableUsersSQL = `
+  CREATE TABLE IF NOT EXISTS users(
+  username TEXT,
+  password TEXT,
+  rol TEXT
+  );
+  `
+  try {
+    await pool.query(createTableEnviosSQL);
+    await pool.query(createTableUsersSQL);
+    console.log("✔️ Tabla 'envios' creada.");
+    console.log("✔️ Tabla 'users' creada.");
+  } catch (err) {
+    console.error("❌ Error creando tabla:", err);
+    throw err;
+  }
+}
 
 const ensureTableExistsAndClean = async () => {
   const createTableSQL = `
@@ -200,7 +264,89 @@ app.get("/client/me", async (req, res) => {
   }
 })
 
+app.post("/login", async (req, res) => {
+  const username = req.body.username
+  const password = req.body.password
+  const hash = await bcrypt.hash(password, 10);
+
+  try {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await pool.query(
+      `SELECT password FROM users WHERE username = $1`,
+      [username]
+    )
+    
+    const isPasswordValid = await bcrypt.compare(password, result.rows[0].password)
+    await client.query("COMMIT");
+    client.release();
+    if(isPasswordValid){
+      res.json({status: 'ok'});
+    }
+    else throw Error ('ERROR CONTRASEÑA INCORRECTA')
+  } catch (error) {
+    console.error("❌ Error haciendo login:", error);
+    res.status(500).json({ ok: false, error: error.message });
+    await client.query("ROLLBACK");
+    client.release();
+  }
+})
+
+app.post("/register", async (req, res) => {
+  const username = req.body.username
+  const password = req.body.password
+  const rol = req.body.rol
+  const hash = await bcrypt.hash(password, 10);
+
+  try {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await pool.query(
+      `INSERT INTO users(username, password, rol) VALUES ($1, $2, $3)`,
+      [username,hash,rol]
+    )
+
+    await client.query("COMMIT");
+    client.release();
+    res.json({status: 'ok'});
+  } catch (error) {
+    console.error("❌ Error creando usuario:", error);
+    res.status(500).json({ ok: false, error: error.message });
+    await client.query("ROLLBACK");
+    client.release();
+  }
+})
+
+app.post("/recovery", async (req, res) => {
+  const username = req.body.username
+  const hash = await bcrypt.hash('0000', 10);
+
+  try {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await pool.query(
+      `UPDATE users SET password = $1 WHERE username = $2`,
+      [hash, username]
+    )
+
+    await client.query("COMMIT");
+    client.release();
+    res.json({status: 'ok', message: 'Su nueva contraseña es 0000'});
+  } catch (error) {
+    console.error("❌ Error recuperando contraseña:", error);
+    res.status(500).json({ ok: false, error: error.message });
+    await client.query("ROLLBACK");
+    client.release();
+  }
+})
+
+createDB()
 // Iniciar el servidor
 app.listen(port, () => {
   console.log(`Servidor corriendo en http://localhost:${port}`);
 });
+
+

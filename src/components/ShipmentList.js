@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import * as XLSX from "xlsx";
+import { useNavigate } from "react-router-dom";
 
 const ShipmentList = () => {
   const [data, setData] = useState([]);
   const [filterText, setFilterText] = useState("");
+  const navigate = useNavigate();
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -48,38 +50,80 @@ const ShipmentList = () => {
   );
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>📦 Subí un Excel y visualizá los envíos</h2>
-      <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} />
-      <br /><br />
+    <div className="min-h-screen bg-gray-900 text-white p-8 font-mono">
+      <h2 className="text-2xl mb-4 text-lime-400 font-bold">
+        📦 Subí un Excel y visualizá los envíos
+      </h2>
+
+      <input
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleFileUpload}
+        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
+        file:text-sm file:font-semibold file:bg-lime-500 file:text-white
+        hover:file:bg-lime-400 transition mb-6"
+      />
+
       {data.length > 0 && (
         <>
+          {/* Botones para otras pantallas */}
+          <div className="flex flex-wrap gap-4 mb-6">
+            <button
+              onClick={() => navigate("/totales-clientes")}
+              className="bg-lime-500 text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition shadow-lg"
+            >
+              📊 Totales Clientes
+            </button>
+            <button
+              onClick={() => navigate("/totales-choferes")}
+              className="bg-lime-500 text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition shadow-lg"
+            >
+              🧾 Totales Choferes
+            </button>
+          </div>
+
+          {/* Filtro de texto */}
           <input
             type="text"
             placeholder="🔍 Filtrar por chofer, cliente, etc."
             value={filterText}
             onChange={handleFilterChange}
-            style={{ padding: 8, width: "300px", marginBottom: 20 }}
+            className="bg-gray-800 border border-lime-400 text-white px-4 py-2 rounded-md w-full md:w-1/2 mb-4 focus:outline-none focus:ring-2 focus:ring-lime-400"
           />
-          <button onClick={enviarDatos}>📤 Enviar a PostgreSQL</button>
-          <table border={1} cellPadding={5}>
-            <thead>
-              <tr>
-                {Object.keys(data[0]).map((key, i) => (
-                  <th key={i}>{key}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((row, i) => (
-                <tr key={i}>
-                  {Object.keys(data[0]).map((key, j) => (
-                    <td key={j}>{row[key]}</td>
+
+          {/* Botón de envío */}
+          <button
+            onClick={enviarDatos}
+            className="bg-lime-500 text-gray-900 px-4 py-2 rounded-md font-semibold hover:brightness-125 transition mb-6 ml-2"
+          >
+            📤 Enviar a PostgreSQL
+          </button>
+
+          {/* Tabla de datos */}
+          <div className="overflow-auto max-h-[60vh] border border-gray-700 rounded-lg">
+            <table className="min-w-full text-sm text-left border-collapse">
+              <thead className="bg-gray-800 sticky top-0 z-10">
+                <tr>
+                  {Object.keys(data[0]).map((key, i) => (
+                    <th key={i} className="px-4 py-2 border-b border-gray-700 text-lime-300">
+                      {key}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredData.map((row, i) => (
+                  <tr key={i} className="hover:bg-gray-800">
+                    {Object.keys(data[0]).map((key, j) => (
+                      <td key={j} className="px-4 py-2 border-b border-gray-800">
+                        {row[key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
@@ -87,3 +131,5 @@ const ShipmentList = () => {
 };
 
 export default ShipmentList;
+
+

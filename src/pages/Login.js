@@ -11,6 +11,18 @@ const Login = () => {
     localStorage.setItem('rol', user.rol);
     localStorage.setItem('username', user.username);
   }; 
+
+  const redirect = async () => {
+    if (localStorage.getItem('rol') === 'admin') {
+      navigate('/dashboard');
+    } else if (localStorage.getItem('rol') === 'driver') {
+      navigate('/driver');
+    } else if (localStorage.getItem('rol') === 'seller') {
+      navigate('/seller');
+    } else {
+      alert('❌ Usuario o contraseña incorrectos');
+    }
+  }
   
 
 
@@ -30,15 +42,7 @@ const Login = () => {
 
       alert("✅ LOGIN CORRECTO, REDIRECCIONANDO");
       login(data.user)
-        // if (data.user.rol === 'admin') {
-        //   navigate('/dashboard');
-        // } else if (data.user.rol === 'driver') {
-        //   navigate('/driver');
-        // } else if (data.user.rol === 'seller') {
-        //   navigate('/seller');
-        // } else {
-        //   alert('❌ Usuario o contraseña incorrectos');
-        // }
+      await redirect()
     
     } catch (err) {
       console.error(err);

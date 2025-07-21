@@ -8,7 +8,11 @@ const port = 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json())
+app.use(express.urlencoded({
+    extended:true
+}))
+app.disable('x-powered-by')
 
 
 // Conexión a PostgreSQL
@@ -83,62 +87,6 @@ const createDB = async () => {
   }
 }
 
-const ensureTableExistsAndClean = async () => {
-  const createTableSQL = `
-    CREATE TABLE IF NOT EXISTS envios (
-      numero_tracking TEXT,
-      id_venta_ml TEXT,
-      usuario_ml_id TEXT,
-      fecha_venta TEXT,
-      fecha_colecta TEXT,
-      fecha_wyn_flex TEXT,
-      metodo_envio TEXT,
-      cod_cliente TEXT,
-      razon_social TEXT,
-      nombre_fantasia TEXT,
-      nombre_destinatario TEXT,
-      tel_destinatario TEXT,
-      email_destinatario TEXT,
-      comentario_destino TEXT,
-      direccion TEXT,
-      cp TEXT,
-      localidad TEXT,
-      provincia TEXT,
-      latitud TEXT,
-      longitud TEXT,
-      estado TEXT,
-      fecha_estado TEXT,
-      quien_estado TEXT,
-      costo_envio TEXT,
-      cadete TEXT,
-      fecha_asignacion TEXT,
-      zonas TEXT,
-      zonas_costos TEXT,
-      observaciones TEXT,
-      url_tracking TEXT,
-      origen TEXT,
-      total TEXT,
-      zona TEXT,
-      precio_cliente TEXT,
-      precio_chofer TEXT,
-      porcentaje_chofer TEXT,
-      neto_chofer TEXT,
-      ganancia TEXT,
-      descuento TEXT,
-      ganancia_real TEXT
-    );
-  `;
-
-  try {
-    await pool.query(createTableSQL);
-    await pool.query("DELETE FROM envios");
-    console.log("✔️ Tabla 'envios' asegurada y vaciada.");
-  } catch (err) {
-    console.error("❌ Error asegurando tabla:", err);
-    throw err;
-  }
-};
-
 
 // Ruta para insertar datos
 app.post("/api/envios", async (req, res) => {
@@ -147,7 +95,8 @@ app.post("/api/envios", async (req, res) => {
   try {
     const client = await pool.connect();
     await client.query("BEGIN");
-    await ensureTableExistsAndClean(); // 🧼 Ensures table is ready and clean
+    await createDB();
+    await pool.query("DELETE FROM envios");
 
     for (const row of rows) {
         const values = Object.values(row);
@@ -267,22 +216,26 @@ app.get("/client/me", async (req, res) => {
 app.post("/login", async (req, res) => {
   const username = req.body.username
   const password = req.body.password
-  const hash = await bcrypt.hash(password, 10);
 
   try {
     const client = await pool.connect();
     await client.query("BEGIN");
 
     const result = await pool.query(
-      `SELECT password FROM users WHERE username = $1`,
+      `SELECT * FROM users WHERE username = $1`,
       [username]
     )
     
     const isPasswordValid = await bcrypt.compare(password, result.rows[0].password)
     await client.query("COMMIT");
+    
     client.release();
+    data = {
+      username: result.rows[0].username, 
+      rol: result.rows[0].rol
+    }
     if(isPasswordValid){
-      res.json({status: 'ok'});
+      return res.status(200).json({status: 'ok', user: data});
     }
     else throw Error ('ERROR CONTRASEÑA INCORRECTA')
   } catch (error) {

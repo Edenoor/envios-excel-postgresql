@@ -1,27 +1,48 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
-  const { login } = useAuth();
+  // const { rol, login } = useAuth();
 
-  const handleLogin = (e) => {
+    const login = (user) => {
+    localStorage.setItem('rol', user.rol);
+    localStorage.setItem('username', user.username);
+  };
+  
+
+
+  const handleLogin = async (e) => {
     e.preventDefault();
+    try {
+      const res = await fetch("http://localhost:5000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({username:username, password:password}),
+      });
+      const data = await res.json()
+      console.log(data);
+      
+      
+      if (!res.ok) throw new Error("Error al login");
 
-    if (username === 'admin' && password === 'admin123') {
-      login('admin');
-      navigate('/dashboard');
-    } else if (username === 'driver' && password === 'driver123') {
-      login('driver');
-      navigate('/driver');
-    } else if (username === 'seller' && password === 'seller123') {
-      login('seller');
-      navigate('/seller');
-    } else {
-      alert('❌ Usuario o contraseña incorrectos');
+      alert("✅ LOGIN CORRECTO, REDIRECCIONANDO");
+      login(data.user)
+        if (data.user.rol === 'admin') {
+          navigate('/dashboard');
+        } else if (data.user.rol === 'driver') {
+          navigate('/driver');
+        } else if (data.user.rol === 'seller') {
+          navigate('/seller');
+        } else {
+          alert('❌ Usuario o contraseña incorrectos');
+        }
+    
+    } catch (err) {
+      console.error(err);
+      alert('❌ mal login');
     }
   };
 

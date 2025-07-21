@@ -10,7 +10,7 @@ const Login = () => {
     const login = (user) => {
     localStorage.setItem('rol', user.rol);
     localStorage.setItem('username', user.username);
-  };
+  }; 
   
 
 
@@ -30,15 +30,15 @@ const Login = () => {
 
       alert("✅ LOGIN CORRECTO, REDIRECCIONANDO");
       login(data.user)
-        if (data.user.rol === 'admin') {
-          navigate('/dashboard');
-        } else if (data.user.rol === 'driver') {
-          navigate('/driver');
-        } else if (data.user.rol === 'seller') {
-          navigate('/seller');
-        } else {
-          alert('❌ Usuario o contraseña incorrectos');
-        }
+        // if (data.user.rol === 'admin') {
+        //   navigate('/dashboard');
+        // } else if (data.user.rol === 'driver') {
+        //   navigate('/driver');
+        // } else if (data.user.rol === 'seller') {
+        //   navigate('/seller');
+        // } else {
+        //   alert('❌ Usuario o contraseña incorrectos');
+        // }
     
     } catch (err) {
       console.error(err);

@@ -19,7 +19,7 @@ const TotalesChoferes = () => (
 );
 
 function App() {
-  const { role } = useAuth();
+  const role = localStorage.getItem('rol')
 
   return (
     <Router>

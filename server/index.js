@@ -8,10 +8,7 @@ const port = 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json())
-app.use(express.urlencoded({
-    extended:true
-}))
+app.use(express.json({limit: '10mb'}));
 app.disable('x-powered-by')
 
 
@@ -27,7 +24,7 @@ const pool = new Pool({
 const createDB = async () => {
     const createTableEnviosSQL = `
     CREATE TABLE IF NOT EXISTS envios (
-      numero_tracking NUMBER,
+      numero_tracking TEXT,
       id_venta_ml TEXT,
       usuario_ml_id TEXT,
       fecha_venta TEXT,
@@ -169,7 +166,18 @@ app.get("/driver/me", async (req, res) => {
     await client.query("BEGIN");
 
     const result = await pool.query(
-      `SELECT * FROM envios WHERE cadete = $1`,
+      `SELECT  
+      numero_tracking,
+      fecha_colecta,
+      nombre_fantasia,
+      direccion,
+      cp,
+      estado,
+      cadete,
+      total,
+      zona,
+      precio_chofer
+      FROM envios WHERE cadete = $1`,
       [name]
     )
 
@@ -195,7 +203,18 @@ app.get("/client/me", async (req, res) => {
     await client.query("BEGIN");
 
     const result = await pool.query(
-      `SELECT * FROM envios WHERE nombre_fantasia = $1`,
+      `SELECT  
+      numero_tracking,
+      fecha_colecta,
+      nombre_fantasia,
+      direccion,
+      cp,
+      estado,
+      cadete,
+      total,
+      zona,
+      precio_cliente
+      FROM envios WHERE nombre_fantasia = $1`,
       [name]
     )
 
@@ -212,6 +231,65 @@ app.get("/client/me", async (req, res) => {
     client.release();
   }
 })
+
+app.get("/admin", async (req, res) => {
+  try {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Cadete summary with sum(precio_chofer), porcentaje_chofer, and sum(neto_chofer)
+    const choferResult = await client.query(`
+      SELECT 
+        cadete AS chofer,
+        SUM(precio_chofer::numeric) AS semanal,
+        porcentaje_chofer AS "%", 
+        SUM(neto_chofer::numeric) AS parcial
+      FROM envios
+      WHERE 
+        cadete IS NOT NULL
+        AND precio_chofer ~ '^\\d+(\\.\\d+)?$'
+        AND neto_chofer ~ '^\\d+(\\.\\d+)?$'
+        AND porcentaje_chofer ~ '^\\d+(\\.\\d+)?$'
+      GROUP BY cadete, porcentaje_chofer
+    `);
+
+    // Cliente summary with sum(precio_cliente), descuento, and parcial = semanal - (semanal * descuento)
+    const clienteResult = await client.query(`
+      SELECT 
+        nombre_fantasia AS cliente,
+        SUM(precio_cliente::numeric) AS semanal,
+        descuento AS "%", 
+        ROUND(SUM(precio_cliente::numeric) * (1 - descuento::numeric), 2) AS parcial
+      FROM envios
+      WHERE 
+        nombre_fantasia IS NOT NULL
+        AND precio_cliente ~ '^\\d+(\\.\\d+)?$'
+        AND descuento ~ '^\\d+(\\.\\d+)?$'
+      GROUP BY nombre_fantasia, descuento
+    `);
+
+    await client.query("COMMIT");
+    client.release();
+
+    res.json({
+      status: 'ok',
+      resumen_cadetes: choferResult.rows,
+      resumen_clientes: clienteResult.rows
+    });
+
+  } catch (err) {
+    console.error("❌ Error trayendo resumen:", err);
+    res.status(500).json({ ok: false, error: err.message });
+
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("❌ Error al hacer rollback:", rollbackError);
+    }
+
+    if (client) client.release();
+  }
+});
 
 app.post("/login", async (req, res) => {
   const username = req.body.username

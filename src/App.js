@@ -25,12 +25,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-
-        <Route path="/dashboard" element={role === 'admin' ? <Dashboard /> : <Navigate to="/" />} />
-        <Route path="/driver" element={role === 'driver' ? <Driver /> : <Navigate to="/" />} />
-        <Route path="/seller" element={role === 'seller' ? <Seller /> : <Navigate to="/" />} />
-        <Route path="/totales-clientes" element={role === 'admin' ? <TotalesClientes /> : <Navigate to="/" />} />
-        <Route path="/totales-choferes" element={role === 'admin' ? <TotalesChoferes /> : <Navigate to="/" />} />
+        <Route path="/dashboard" element={role === 'admin' ? <Dashboard /> : <Navigate to="/Dashboard" />} />
+        <Route path="/driver" element={role === 'driver' ? <Driver /> : <Navigate to="/Driver" />} />
+        <Route path="/seller" element={role === 'seller' ? <Seller /> : <Navigate to="/Seller" />} />
       </Routes>
     </Router>
   );

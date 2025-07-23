@@ -157,8 +157,9 @@ app.post("/cargar-excel", async (req, res) => {
   }
 });
 
-app.get("/driver/me", async (req, res) => {
-  const name = req.body.name;
+app.post("/driver/me", async (req, res) => {
+  const name = req.body.username;
+  console.log(name);
   
 
   try {
@@ -195,8 +196,8 @@ app.get("/driver/me", async (req, res) => {
   }
 })
 
-app.get("/client/me", async (req, res) => {
-  const name = req.body.name;
+app.post("/client/me", async (req, res) => {
+  const name = req.body.username;
 
   try {
     const client = await pool.connect();

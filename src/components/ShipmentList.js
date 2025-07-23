@@ -64,21 +64,22 @@ const ShipmentList = () => {
         hover:file:bg-lime-400 transition mb-6"
       />
 
+      <button
+              onClick={() => navigate("/totales")}
+              className="bg-lime-500 text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition shadow-lg"
+            >
+              📊 Totales
+            </button>
+
       {data.length > 0 && (
         <>
           {/* Botones para otras pantallas */}
           <div className="flex flex-wrap gap-4 mb-6">
             <button
-              onClick={() => navigate("/totales-clientes")}
+              onClick={() => navigate("/totales")}
               className="bg-lime-500 text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition shadow-lg"
             >
-              📊 Totales Clientes
-            </button>
-            <button
-              onClick={() => navigate("/totales-choferes")}
-              className="bg-lime-500 text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition shadow-lg"
-            >
-              🧾 Totales Choferes
+              📊 Totales
             </button>
           </div>
 

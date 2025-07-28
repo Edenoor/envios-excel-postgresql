@@ -5,26 +5,6 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
-  // const { rol, login } = useAuth();
-
-    const login = (user) => {
-    localStorage.setItem('rol', user.rol);
-    localStorage.setItem('username', user.username);
-  }; 
-
-  const redirect = async () => {
-    if (localStorage.getItem('rol') === 'admin') {
-      navigate('/dashboard');
-    } else if (localStorage.getItem('rol') === 'driver') {
-      navigate('/driver');
-    } else if (localStorage.getItem('rol') === 'seller') {
-      navigate('/seller');
-    } else {
-      alert('❌ Usuario o contraseña incorrectos');
-    }
-  }
-  
-
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -32,21 +12,25 @@ const Login = () => {
       const res = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({username:username, password:password}),
+        body: JSON.stringify({ username, password }),
       });
-      const data = await res.json()
-      console.log(data);
-      
-      
-      if (!res.ok) throw new Error("Error al login");
+
+      const data = await res.json();
+      if (!res.ok || !data.user) throw new Error("Login fallido");
+
+      const { rol, username: userNameFromDB } = data.user;
+      localStorage.setItem("rol", rol);
+      localStorage.setItem("username", userNameFromDB);
 
       alert("✅ LOGIN CORRECTO, REDIRECCIONANDO");
-      login(data.user)
-      await redirect()
-    
+
+      if (rol === "admin") navigate("/admin");
+      else if (rol === "driver") navigate("/driver");
+      else if (rol === "seller") navigate("/seller");
+      else alert("❌ Rol desconocido");
     } catch (err) {
       console.error(err);
-      alert('❌ mal login');
+      alert('❌ Usuario o contraseña incorrectos');
     }
   };
 
@@ -94,5 +78,7 @@ const Login = () => {
 };
 
 export default Login;
+
+
 
 

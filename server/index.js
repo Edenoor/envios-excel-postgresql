@@ -11,18 +11,17 @@ app.use(cors());
 app.use(express.json({limit: '10mb'}));
 app.disable('x-powered-by')
 
-
 // Conexión a PostgreSQL
 const pool = new Pool({
   user: "postgres", // o tu usuario de pgAdmin
   host: "localhost",
   database: "excel_envios",
-  password: "postgre",
+  password: "lynx",
   port: 5432,
 });
 
 const createDB = async () => {
-    const createTableEnviosSQL = `
+  const createTableEnviosSQL = `
     CREATE TABLE IF NOT EXISTS envios (
       numero_tracking TEXT,
       id_venta_ml TEXT,
@@ -67,23 +66,46 @@ const createDB = async () => {
     );
   `;
   const createTableUsersSQL = `
-  CREATE TABLE IF NOT EXISTS users(
-  username TEXT,
-  password TEXT,
-  rol TEXT
-  );
-  `
+    CREATE TABLE IF NOT EXISTS users(
+      username TEXT,
+      password TEXT,
+      rol TEXT
+    );
+  `;
   try {
     await pool.query(createTableEnviosSQL);
     await pool.query(createTableUsersSQL);
     console.log("✔️ Tabla 'envios' creada.");
     console.log("✔️ Tabla 'users' creada.");
+
+    // --------- Usuarios por defecto ---------
+    const defaultUsers = [
+      { username: 'admin', password: 'admin123', rol: 'admin' },
+      { username: 'lithium', password: '1234', rol: 'seller' },
+      { username: 'daniela ancona', password: '1234', rol: 'driver' },
+    ];
+
+    for (const u of defaultUsers) {
+      const exists = await pool.query(
+        'SELECT 1 FROM users WHERE username = $1',
+        [u.username]
+      );
+      if (exists.rowCount === 0) {
+        const hash = await bcrypt.hash(u.password, 10);
+        await pool.query(
+          'INSERT INTO users(username, password, rol) VALUES ($1, $2, $3)',
+          [u.username, hash, u.rol]
+        );
+        console.log(`✅ Usuario creado: ${u.username} (${u.rol})`);
+      }
+    }
+    // ----------------------------------------
+
   } catch (err) {
     console.error("❌ Error creando tabla:", err);
     throw err;
   }
 }
-
 
 // Ruta para insertar datos
 app.post("/api/envios", async (req, res) => {
@@ -96,8 +118,7 @@ app.post("/api/envios", async (req, res) => {
     await pool.query("DELETE FROM envios");
 
     for (const row of rows) {
-        const values = Object.values(row);
-
+      const values = Object.values(row);
 
       await pool.query(
         `INSERT INTO envios (
@@ -157,81 +178,125 @@ app.post("/cargar-excel", async (req, res) => {
   }
 });
 
-app.post("/driver/me", async (req, res) => {
-  const name = req.body.username;
-  console.log(name);
+// app.post("/driver/me", async (req, res) => {
+//   const name = req.body.username;
+//   console.log(name);
   
+//   try {
+//     const client = await pool.connect();
+//     await client.query("BEGIN");
 
-  try {
-    const client = await pool.connect();
-    await client.query("BEGIN");
+//     const result = await pool.query(
+//       `SELECT  
+//       numero_tracking,
+//       fecha_colecta,
+//       nombre_fantasia,
+//       direccion,
+//       cp,
+//       estado,
+//       cadete,
+//       total,
+//       zona,
+//       precio_chofer
+//       FROM envios WHERE cadete = $1`,
+//       [name]
+//     )
 
-    const result = await pool.query(
-      `SELECT  
-      numero_tracking,
-      fecha_colecta,
-      nombre_fantasia,
-      direccion,
-      cp,
-      estado,
-      cadete,
-      total,
-      zona,
-      precio_chofer
-      FROM envios WHERE cadete = $1`,
-      [name]
-    )
-
-    console.log(result.rows);
+//     console.log(result.rows);
     
+//     await client.query("COMMIT");
+//     client.release();
+//     res.json({status: 'ok',result: result.rows});
+//   } catch (err) {
+//     console.error("❌ Error trayendo datos:", err);
+//     res.status(500).json({ ok: false, error: err.message });
+//     await client.query("ROLLBACK");
+//     client.release();
+//   }
+// })
+
+// app.post("/client/me", async (req, res) => {
+//   const name = req.body.username;
+
+//   try {
+//     const client = await pool.connect();
+//     await client.query("BEGIN");
+
+//     const result = await client.query(
+//       `SELECT  
+//       numero_tracking,
+//       fecha_colecta,
+//       nombre_fantasia,
+//       direccion,
+//       cp,
+//       estado,
+//       cadete,
+//       total,
+//       zona,
+//       precio_cliente
+//       FROM envios WHERE nombre_fantasia = $1`,
+//       [name]
+//     )
+
+//     console.log(result.rows);
     
-    await client.query("COMMIT");
-    client.release();
-    res.json({status: 'ok',result: result.rows});
-  } catch (err) {
-    console.error("❌ Error trayendo datos:", err);
-    res.status(500).json({ ok: false, error: err.message });
-    await client.query("ROLLBACK");
-    client.release();
-  }
-})
+//     await client.query("COMMIT");
+//     client.release();
+//     res.json({status: 'ok',result: result.rows});
+//   } catch (err) {
+//     console.error("❌ Error trayendo datos:", err);
+//     res.status(500).json({ ok: false, error: err.message });
+//     await client.query("ROLLBACK");
+//     client.release();
+//   }
+// })
 
 app.post("/client/me", async (req, res) => {
-  const name = req.body.username;
+  const { username } = req.body;
+  let client;
 
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     await client.query("BEGIN");
 
-    const result = await pool.query(
-      `SELECT  
-      numero_tracking,
-      fecha_colecta,
-      nombre_fantasia,
-      direccion,
-      cp,
-      estado,
-      cadete,
-      total,
-      zona,
-      precio_cliente
-      FROM envios WHERE nombre_fantasia = $1`,
-      [name]
-    )
+    // Normalizamos el username para comparar en minúsculas
+    const q = `
+      SELECT
+        numero_tracking,
+        fecha_colecta,
+        nombre_fantasia,
+        direccion,
+        cp,
+        estado,
+        cadete,
+        total,
+        zona,
+        precio_cliente,
+        COALESCE(descuento, '0') AS descuento
+      FROM envios
+      WHERE 
+        LOWER(usuario_ml_id) = LOWER($1)
+        OR LOWER(cod_cliente) = LOWER($1)
+        OR LOWER(razon_social) = LOWER($1)
+        OR LOWER(nombre_fantasia) = LOWER($1)
+    `;
 
-    console.log(result.rows);
-    
-    
+    const result = await client.query(q, [username]);
+
     await client.query("COMMIT");
     client.release();
-    res.json({status: 'ok',result: result.rows});
+
+    return res.json({ status: "ok", result: result.rows });
   } catch (err) {
-    console.error("❌ Error trayendo datos:", err);
-    res.status(500).json({ ok: false, error: err.message });
-    await client.query("ROLLBACK");
-    client.release();
+    console.error("❌ Error trayendo datos /client/me:", err);
+    if (client) {
+      try { await client.query("ROLLBACK"); } catch {}
+      client.release();
+    }
+    return res.status(500).json({ ok: false, error: err.message });
   }
-})
+});
+
 
 app.get("/admin", async (req, res) => {
   try {
@@ -400,10 +465,103 @@ app.post("/update", async (req, res) => {
   }
 })
 
+app.post("/reset-db", async (req, res) => {
+  try {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Borrar todos los datos de envios y users
+    await client.query("DELETE FROM envios");
+    await client.query("DELETE FROM users");
+
+    // Crear nuevamente las tablas si no existen
+    await createDB();
+
+    await client.query("COMMIT");
+    client.release();
+
+    res.status(200).json({ status: "ok", message: "Base de datos reiniciada correctamente." });
+  } catch (err) {
+    console.error("❌ Error reiniciando base de datos:", err);
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("❌ Error haciendo rollback:", rollbackError);
+    }
+    if (client) client.release();
+    res.status(500).json({ ok: false, error: "Error reiniciando base de datos" });
+  }
+});
+
+// En tu archivo index.js o donde manejás las rutas
+app.post("/driver/porcentaje", async (req, res) => {
+  const { username } = req.body;
+
+  try {
+    const result = await pool.query(
+      "SELECT porcentaje_chofer FROM users WHERE username = $1 LIMIT 1",
+      [username]
+    );
+
+    if (result.rows.length > 0) {
+      res.json({ porcentaje: result.rows[0].porcentaje_chofer });
+    } else {
+      res.status(404).json({ error: "No se encontró el chofer" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+});
+
+
+app.post("/driver/me", async (req, res) => {
+  const name = req.body.username;
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `SELECT  
+        numero_tracking,
+        fecha_colecta,
+        nombre_fantasia,
+        direccion,
+        cp,
+        estado,
+        cadete,
+        total,
+        zona,
+        precio_chofer,
+        porcentaje_chofer           -- <- lo agregamos
+      FROM envios 
+      WHERE cadete = $1`,
+      [name]
+    );
+
+    await client.query("COMMIT");
+    client.release();
+
+    return res.json({ status: 'ok', result: result.rows });
+  } catch (err) {
+    console.error("❌ Error trayendo datos:", err);
+    if (client) {
+      try { await client.query("ROLLBACK"); } catch {}
+      client.release();
+    }
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
+
 createDB()
 // Iniciar el servidor
 app.listen(port, () => {
   console.log(`Servidor corriendo en http://localhost:${port}`);
 });
+
 
 

@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const [rol, setRol] = useState('')
+
+  useEffect(() => {
+    if (rol === "admin") {
+      navigate("/admin", { replace: true });
+    } else if (rol === "driver") {
+      navigate("/driver", { replace: true });
+    } else if (rol === "seller") {
+      navigate("/seller", { replace: true });
+      } else {
+      console.log("Rol no reconocido");
+    }
+  }, [rol])
+  
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,11 +37,8 @@ const Login = () => {
       localStorage.setItem("username", userNameFromDB);
 
       alert("✅ LOGIN CORRECTO, REDIRECCIONANDO");
+      setRol(rol)
 
-      if (rol === "admin") navigate("/admin");
-      else if (rol === "driver") navigate("/driver");
-      else if (rol === "seller") navigate("/seller");
-      else alert("❌ Rol desconocido");
     } catch (err) {
       console.error(err);
       alert('❌ Usuario o contraseña incorrectos');

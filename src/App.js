@@ -9,34 +9,42 @@ import Totales from './pages/Totales';
 import AdminLayout from './Layouts/AdminLayout';
 
 function App() {
-  const role = localStorage.getItem('rol');
 
   return (
     <Router>
       <Routes>
-        {/* Ruta pública */}
         <Route path="/" element={<Login />} />
 
-        {/* Admin layout: protegemos rutas adentro */}
-        <Route path="/admin" element={role === 'admin' ? <AdminLayout /> : <Navigate to="/" replace />}>
+        <Route
+          exact
+          path="/admin"
+          element={
+            <AdminLayout /> 
+          }
+        >
           <Route index element={<AdminHome />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="totales" element={<Totales />} />
         </Route>
 
-        {/* Driver */}
         <Route
+          exact
           path="/driver"
-          element={role === 'driver' ? <Driver /> : <Navigate to="/" replace />}
-        />
+          element={
+            <Driver /> 
+          }
+          >
+        </Route>
 
-        {/* Seller */}
         <Route
+          exact
           path="/seller"
-          element={role === 'seller' ? <Seller /> : <Navigate to="/" replace />}
-        />
+          element={
+             <Seller /> 
+          }
+          >
+        </Route>
 
-        {/* Redirección general */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
@@ -44,10 +52,3 @@ function App() {
 }
 
 export default App;
-
-
-
-
-
-
-

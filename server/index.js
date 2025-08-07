@@ -65,6 +65,50 @@ const createDB = async () => {
       ganancia_real TEXT
     );
   `;
+  const createTableEnviosCleanSQL = `
+    CREATE TABLE IF NOT EXISTS envios_clean (
+      numero_tracking TEXT,
+      id_venta_ml TEXT,
+      usuario_ml_id TEXT,
+      fecha_venta DATE,
+      fecha_colecta TIMESTAMP,
+      fecha_wyn_flex TEXT,
+      metodo_envio TEXT,
+      cod_cliente TEXT,
+      razon_social TEXT,
+      nombre_fantasia TEXT,
+      nombre_destinatario TEXT,
+      tel_destinatario TEXT,
+      email_destinatario TEXT,
+      comentario_destino TEXT,
+      direccion TEXT,
+      cp TEXT,
+      localidad TEXT,
+      provincia TEXT,
+      latitud NUMERIC,
+      longitud NUMERIC,
+      estado TEXT,
+      fecha_estado TIMESTAMP,
+      quien_estado TEXT,
+      costo_envio NUMERIC,
+      cadete TEXT,
+      fecha_asignacion TIMESTAMP,
+      zonas TEXT,
+      zonas_costos TEXT,
+      observaciones TEXT,
+      url_tracking TEXT,
+      origen TEXT,
+      total NUMERIC,
+      zona TEXT,
+      precio_cliente NUMERIC,
+      precio_chofer NUMERIC,
+      porcentaje_chofer NUMERIC,
+      neto_chofer NUMERIC,
+      ganancia NUMERIC,
+      descuento NUMERIC,
+      ganancia_real NUMERIC
+    );
+  `;
   const createTableUsersSQL = `
     CREATE TABLE IF NOT EXISTS users(
       username TEXT,
@@ -74,8 +118,10 @@ const createDB = async () => {
   `;
   try {
     await pool.query(createTableEnviosSQL);
+    await pool.query(createTableEnviosCleanSQL);
     await pool.query(createTableUsersSQL);
     console.log("✔️ Tabla 'envios' creada.");
+    console.log("✔️ Tabla 'envios_clean' creada.");
     console.log("✔️ Tabla 'users' creada.");
 
     // --------- Usuarios por defecto ---------
@@ -114,13 +160,15 @@ app.post("/api/envios", async (req, res) => {
   try {
     const client = await pool.connect();
     await client.query("BEGIN");
+    await client.query("SET datestyle = dmy;");
+    
     await createDB();
-    await pool.query("DELETE FROM envios");
 
     for (const row of rows) {
       const values = Object.values(row);
+      
 
-      await pool.query(
+      await client.query(
         `INSERT INTO envios (
           numero_tracking, id_venta_ml, usuario_ml_id, fecha_venta, fecha_colecta,
           fecha_wyn_flex, metodo_envio, cod_cliente, razon_social, nombre_fantasia,
@@ -133,6 +181,59 @@ app.post("/api/envios", async (req, res) => {
         Object.values(row)
       );
     }
+    await client.query(`
+      INSERT INTO envios_clean (
+        numero_tracking, id_venta_ml, usuario_ml_id, fecha_venta, fecha_colecta,
+        fecha_wyn_flex, metodo_envio, cod_cliente, razon_social, nombre_fantasia,
+        nombre_destinatario, tel_destinatario, email_destinatario, comentario_destino,
+        direccion, cp, localidad, provincia, latitud, longitud, estado, fecha_estado,
+        quien_estado, costo_envio, cadete, fecha_asignacion, zonas, zonas_costos,
+        observaciones, url_tracking, origen, total, zona, precio_cliente, precio_chofer,
+        porcentaje_chofer, neto_chofer, ganancia, descuento, ganancia_real
+      )
+      SELECT
+        numero_tracking,
+        id_venta_ml,
+        usuario_ml_id,
+        CASE WHEN fecha_venta = '' THEN NULL ELSE TO_DATE(fecha_venta, 'DD/MM/YYYY') END,
+        CASE WHEN fecha_colecta = '' THEN NULL ELSE TO_TIMESTAMP(fecha_colecta, 'DD/MM/YYYY HH24:MI') END,
+        fecha_wyn_flex,
+        metodo_envio,
+        cod_cliente,
+        razon_social,
+        nombre_fantasia,
+        nombre_destinatario,
+        tel_destinatario,
+        email_destinatario,
+        comentario_destino,
+        direccion,
+        cp,
+        localidad,
+        provincia,
+        CASE WHEN latitud = '' THEN 0 ELSE latitud::NUMERIC END,
+        CASE WHEN longitud = '' THEN 0 ELSE longitud::NUMERIC END,
+        estado,
+        CASE WHEN fecha_estado = '' THEN NULL ELSE TO_TIMESTAMP(fecha_estado, 'DD/MM/YYYY HH24:MI') END,
+        quien_estado,
+        CASE WHEN costo_envio = '' THEN 0 ELSE REPLACE(REPLACE(costo_envio, '.', ''), ',', '.')::NUMERIC END,
+        cadete,
+        CASE WHEN fecha_asignacion = '' THEN NULL ELSE TO_TIMESTAMP(fecha_asignacion, 'DD/MM/YYYY HH24:MI') END,
+        zonas,
+        zonas_costos,
+        observaciones,
+        url_tracking,
+        origen,
+        CASE WHEN total = '' THEN 0 ELSE REPLACE(REPLACE(total, '.', ''), ',', '.')::NUMERIC END,
+        zona,
+        CASE WHEN precio_cliente = '' THEN 0 ELSE REPLACE(REPLACE(precio_cliente, '.', ''), ',', '.')::NUMERIC END,
+        CASE WHEN precio_chofer = '' THEN 0 ELSE REPLACE(REPLACE(precio_chofer, '.', ''), ',', '.')::NUMERIC END,
+        CASE WHEN porcentaje_chofer = '' THEN 0 ELSE REPLACE(REPLACE(porcentaje_chofer, '.', ''), ',', '.')::NUMERIC END,
+        CASE WHEN neto_chofer = '' THEN 0 ELSE REPLACE(REPLACE(neto_chofer, '.', ''), ',', '.')::NUMERIC END,
+        CASE WHEN ganancia = '' THEN 0 ELSE REPLACE(REPLACE(ganancia, '.', ''), ',', '.')::NUMERIC END,
+        CASE WHEN descuento = '' THEN 0 ELSE REPLACE(REPLACE(descuento, '.', ''), ',', '.')::NUMERIC END,
+        CASE WHEN ganancia_real = '' THEN 0 ELSE REPLACE(REPLACE(ganancia_real, '.', ''), ',', '.')::NUMERIC END
+      FROM envios
+    `);
 
     await client.query("COMMIT");
     client.release();
@@ -536,8 +637,10 @@ app.post("/driver/me", async (req, res) => {
         zona,
         precio_chofer,
         porcentaje_chofer           -- <- lo agregamos
-      FROM envios 
-      WHERE cadete = $1`,
+      FROM envios_clean 
+      WHERE cadete = $1
+      AND fecha_colecta BETWEEN date_trunc('week', now()::date) AND now()
+      `,
       [name]
     );
 
@@ -555,7 +658,52 @@ app.post("/driver/me", async (req, res) => {
   }
 });
 
+app.post("/dates", async (req, res) => {
+  const name = req.body.username
+  const from = req.body.from + ' 00:00:00'
+  const to = req.body.to + ' 23:59:59'
 
+  console.log(from, to, name);
+  
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `SELECT  
+        numero_tracking,
+        fecha_colecta,
+        nombre_fantasia,
+        direccion,
+        cp,
+        estado,
+        cadete,
+        total,
+        zona,
+        precio_chofer,
+        porcentaje_chofer           -- <- lo agregamos
+      FROM envios_clean 
+      WHERE cadete = $1 AND fecha_colecta >= $2 AND fecha_colecta < $3`,
+      [name,from,to]
+    );
+
+    await client.query("COMMIT");
+    client.release();
+    console.log(result.rows);
+    
+
+    return res.json({ status: 'ok', result: result.rows });
+  } catch (err) {
+    console.error("❌ Error trayendo datos:", err);
+    if (client) {
+      try { await client.query("ROLLBACK"); } catch {}
+      client.release();
+    }
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+})
 
 createDB()
 // Iniciar el servidor

@@ -7,20 +7,40 @@ const ShipmentList = () => {
   const [filterText, setFilterText] = useState("");
   const navigate = useNavigate();
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const handleFileUpload = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target.result;
-      const wb = XLSX.read(bstr, { type: "binary" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const parsedData = XLSX.utils.sheet_to_json(ws, { defval: "" });
-      setData(parsedData);
-    };
-    reader.readAsBinaryString(file);
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const bstr = evt.target.result;
+    const wb = XLSX.read(bstr, { type: "binary", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rawData = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+    // Convertir fechas numéricas a objetos Date
+    const dataConFechas = rawData.map((row) => {
+      const nuevaFila = { ...row };
+
+      ["Fecha Colecta", "Fecha Venta"].forEach((col) => {
+        const valor = row[col];
+        if (typeof valor === "number") {
+          const excelEpoch = new Date(1900, 0, valor - 1); // Excel base 1
+          nuevaFila[col] = excelEpoch.toISOString().slice(0, 10); // formato YYYY-MM-DD
+        }
+      });
+
+      return nuevaFila;
+    });
+
+    setData(dataConFechas);
   };
+  reader.readAsBinaryString(file);
+};
+
+
+
+
 
   const enviarDatos = async () => {
     try {

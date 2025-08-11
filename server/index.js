@@ -8,7 +8,9 @@ const port = 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({limit: '10mb'}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
 app.disable('x-powered-by')
 
 // Conexión a PostgreSQL
@@ -259,7 +261,6 @@ app.post("/client/me", async (req, res) => {
     client = await pool.connect();
     await client.query("BEGIN");
 
-    // Normalizamos el username para comparar en minúsculas
     const q = `
       SELECT
         numero_tracking,
@@ -272,7 +273,7 @@ app.post("/client/me", async (req, res) => {
         total,
         zona,
         precio_cliente,
-        COALESCE(descuento, '0') AS descuento
+        COALESCE(descuento, '0')::float AS descuento
       FROM envios
       WHERE 
         LOWER(usuario_ml_id) = LOWER($1)
@@ -282,11 +283,28 @@ app.post("/client/me", async (req, res) => {
     `;
 
     const result = await client.query(q, [username]);
+    const rows = result.rows;
+
+    // ✅ Calcular totales
+    const totalEnvios = rows.length;
+    const montoTotal = rows.reduce((acc, r) => acc + Number(r.precio_cliente || 0), 0);
+    const totalDescuento = rows.reduce((acc, r) => acc + (Number(r.precio_cliente) * Number(r.descuento)), 0);
+    const netoFinal = montoTotal - totalDescuento;
+    const descuentoPromedio = rows.length ? totalDescuento / montoTotal : 0;
 
     await client.query("COMMIT");
     client.release();
 
-    return res.json({ status: "ok", result: result.rows });
+    return res.json({
+      status: "ok",
+      result: rows,
+      totales: {
+        totalEnvios,
+        montoTotal,
+        netoFinal,
+      },
+      discount: descuentoPromedio,
+    });
   } catch (err) {
     console.error("❌ Error trayendo datos /client/me:", err);
     if (client) {
@@ -296,6 +314,7 @@ app.post("/client/me", async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+
 
 
 app.get("/admin", async (req, res) => {
@@ -535,7 +554,7 @@ app.post("/driver/me", async (req, res) => {
         total,
         zona,
         precio_chofer,
-        porcentaje_chofer           -- <- lo agregamos
+        porcentaje_chofer
       FROM envios 
       WHERE cadete = $1`,
       [name]
@@ -544,9 +563,22 @@ app.post("/driver/me", async (req, res) => {
     await client.query("COMMIT");
     client.release();
 
-    return res.json({ status: 'ok', result: result.rows });
+    const rows = result.rows;
+
+    const totalEnvios = rows.length;
+    const montoTotal = rows.reduce((sum, r) => sum + Number(r.precio_chofer || 0), 0);
+    const porcentaje = rows[0]?.porcentaje_chofer ? parseFloat(rows[0].porcentaje_chofer) : 0;
+    const netoFinal = montoTotal * (1 - porcentaje);
+
+    return res.json({
+      status: 'ok',
+      result: rows,
+      totales: { totalEnvios, montoTotal, netoFinal },
+      discount: porcentaje,
+    });
+
   } catch (err) {
-    console.error("❌ Error trayendo datos:", err);
+    console.error("❌ Error trayendo datos /driver/me:", err);
     if (client) {
       try { await client.query("ROLLBACK"); } catch {}
       client.release();
@@ -554,6 +586,7 @@ app.post("/driver/me", async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+
 
 
 

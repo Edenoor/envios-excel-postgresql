@@ -60,6 +60,19 @@ const Totales = () => {
     const negro = "FF000000";
     const blanco = "FFFFFFFF";
 
+    function formatColumnByHeader(sheet, headerText, format) {
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell((cell, colNumber) => {
+      if (cell.value === headerText) {
+        sheet.getColumn(colNumber).eachCell((c, rowNumber) => {
+          if (rowNumber > 1 && typeof c.value === "number") {
+            c.numFmt = format;
+          }
+        });
+      }
+    });
+  }
+
     const addSheet = (title, data) => {
       const ws = workbook.addWorksheet(title);
 
@@ -87,7 +100,13 @@ const Totales = () => {
 
       // Body
       data.forEach((row) => {
-        const values = headers.map((h) => row[h]);
+        const values = headers.map((h) => {
+        // Ensure numeric values for currency columns
+        if (h === "semanal" || h === "parcial" || h === '%') {
+          return Number((row[h] || "0").toString().replace(",", "."));
+        }
+        return row[h];
+        });
         const r = ws.addRow(values);
         r.eachCell((cell) => {
           cell.fill = {
@@ -169,6 +188,9 @@ const Totales = () => {
           cell.alignment = { vertical: "middle", horizontal: isNumberCol ? "right" : "left" };
         });
       }
+      if (hasSemanal) formatColumnByHeader(ws, "semanal", '"$"#,##0.00');
+      if (hasParcial) formatColumnByHeader(ws, "parcial", '"$"#,##0.00');
+      formatColumnByHeader(ws, "%", '0.00"%"');
     };
 
     addSheet("Cadetes", dataCadetes);
@@ -223,6 +245,18 @@ const handleDownloadAllClients = async () => {
       const dorado = "FFFFC300";
       const blanco = "FFFFFFFF";
       const negro = "FF000000";
+      function formatColumnByHeader(sheet, headerText, format) {
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell, colNumber) => {
+        if (cell.value === headerText) {
+          sheet.getColumn(colNumber).eachCell((c, rowNumber) => {
+            if (rowNumber > 1 && typeof c.value === "number") {
+              c.numFmt = format;
+            }
+          });
+        }
+      });
+    }
 
       const headers = Object.keys(rows[0]);
       const headersRow = sheet.addRow(headers);
@@ -243,7 +277,11 @@ const handleDownloadAllClients = async () => {
       });
 
       rows.forEach((row) => {
-        const rowData = headers.map((h) => row[h]);
+        const rowData = headers.map((h) => {
+          if (h === "precio_cliente") return Number(row[h]);
+          if (h === "descuento") return Number(row[h]);
+          return row[h];
+        });
         const newRow = sheet.addRow(rowData);
         newRow.eachCell((cell) => {
           cell.fill = {
@@ -261,7 +299,8 @@ const handleDownloadAllClients = async () => {
           };
         });
       });
-
+      formatColumnByHeader(sheet, "precio_cliente", '"$"#,##0.00');
+      formatColumnByHeader(sheet, "descuento", '0.00"%"');
       sheet.addRow([]);
 
       if (payload.totales && payload.discount !== undefined) {
@@ -378,6 +417,18 @@ const handleDownloadAllDrivers = async () => {
       const dorado = "FFFFC300";
       const blanco = "FFFFFFFF";
       const negro = "FF000000";
+      function formatColumnByHeader(sheet, headerText, format) {
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell, colNumber) => {
+        if (cell.value === headerText) {
+          sheet.getColumn(colNumber).eachCell((c, rowNumber) => {
+            if (rowNumber > 1 && typeof c.value === "number") {
+              c.numFmt = format;
+            }
+          });
+        }
+      });
+    }
 
       const headers = Object.keys(rows[0]);
       const headersRow = sheet.addRow(headers);
@@ -398,7 +449,11 @@ const handleDownloadAllDrivers = async () => {
       });
 
       rows.forEach((row) => {
-        const rowData = headers.map((h) => row[h]);
+        const rowData = headers.map((h) => {
+          if (h === "precio_chofer") return Number(row[h]);
+          if (h === "porcentaje_chofer") return Number(row[h]);
+          return row[h];
+        });
         const newRow = sheet.addRow(rowData);
         newRow.eachCell((cell) => {
           cell.fill = {
@@ -416,7 +471,8 @@ const handleDownloadAllDrivers = async () => {
           };
         });
       });
-
+      formatColumnByHeader(sheet, "precio_chofer", '"$"#,##0.00');
+      formatColumnByHeader(sheet, "porcentaje_chofer", '0.00"%"');
       sheet.addRow([]);
 
       if (payload.totales && payload.discount !== undefined) {
@@ -517,6 +573,18 @@ const handleDownloadIndividual = async (nombre, tipo) => {
     const dorado = "FFFFC300";
     const blanco = "FFFFFFFF";
     const negro = "FF000000";
+    function formatColumnByHeader(sheet, headerText, format) {
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell, colNumber) => {
+        if (cell.value === headerText) {
+          sheet.getColumn(colNumber).eachCell((c, rowNumber) => {
+            if (rowNumber > 1 && typeof c.value === "number") {
+              c.numFmt = format;
+            }
+          });
+        }
+      });
+    }
 
     const headers = Object.keys(rows[0]);
     const headersRow = sheet.addRow(headers);
@@ -537,7 +605,13 @@ const handleDownloadIndividual = async (nombre, tipo) => {
     });
 
     rows.forEach((row) => {
-      const rowData = headers.map((h) => row[h]);
+      const rowData = headers.map((h) => {
+        if (h === "precio_cliente") return Number(row[h]);
+        if (h === "descuento") return Number(row[h]);
+        if (h === "precio_chofer") return Number(row[h]);
+        if (h === "porcentaje_chofer") return Number(row[h]);
+        return row[h];
+      });
       const newRow = sheet.addRow(rowData);
       newRow.eachCell((cell) => {
         cell.fill = {
@@ -555,6 +629,15 @@ const handleDownloadIndividual = async (nombre, tipo) => {
         };
       });
     });
+    if(tipo === 'cadete'){
+      formatColumnByHeader(sheet, "precio_chofer", '"$"#,##0.00');
+      formatColumnByHeader(sheet, "porcentaje_chofer", '0.00"%"');
+    }
+    else if(tipo === 'cliente'){
+      formatColumnByHeader(sheet, "precio_cliente", '"$"#,##0.00');
+      formatColumnByHeader(sheet, "descuento", '0.00"%"');
+    }
+    
 
     sheet.addRow([]);
 

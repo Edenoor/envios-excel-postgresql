@@ -62,6 +62,19 @@ const Driver = () => {
     const blanco = "FFFFFFFF";
     const negro = "FF000000";
 
+    function formatColumnByHeader(sheet, headerText, format) {
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell, colNumber) => {
+        if (cell.value === headerText) {
+          sheet.getColumn(colNumber).eachCell((c, rowNumber) => {
+            if (rowNumber > 1 && typeof c.value === "number") {
+              c.numFmt = format;
+            }
+          });
+        }
+      });
+    }
+
     const headersRow = sheet.addRow(headers);
     headersRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: negro } };
@@ -80,7 +93,12 @@ const Driver = () => {
     });
 
     data.forEach((row) => {
-      const rowData = headers.map((h) => row[h]);
+      const rowData = headers.map((h) => {
+      if (h === "precio_chofer") return Number(row[h]);
+      if (h === "porcentaje_chofer") return Number(row[h]);
+      return row[h];
+      });
+
       const newRow = sheet.addRow(rowData);
       newRow.eachCell((cell) => {
         cell.fill = {
@@ -98,6 +116,9 @@ const Driver = () => {
         };
       });
     });
+
+    formatColumnByHeader(sheet, "precio_chofer", '"$"#,##0.00');
+    formatColumnByHeader(sheet, "porcentaje_chofer", '0.00"%"');
 
     sheet.addRow([]);
 
@@ -152,6 +173,7 @@ const Driver = () => {
     setShowExportOptions(false);
   };
 
+  
   const handleDownloadPDF = () => {
     if (!data.length) return;
 
@@ -289,4 +311,3 @@ const Driver = () => {
 };
 
 export default Driver;
-

@@ -68,6 +68,18 @@ const handleDownloadStyledXLS = async () => {
     const dorado = "FFFFC300";
     const blanco = "FFFFFFFF";
     const negro = "FF000000";
+    function formatColumnByHeader(sheet, headerText, format) {
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell, colNumber) => {
+        if (cell.value === headerText) {
+          sheet.getColumn(colNumber).eachCell((c, rowNumber) => {
+            if (rowNumber > 1 && typeof c.value === "number") {
+              c.numFmt = format;
+            }
+          });
+        }
+      });
+    }
 
     const headersRow = sheet.addRow(headers);
     headersRow.eachCell((cell) => {
@@ -87,7 +99,11 @@ const handleDownloadStyledXLS = async () => {
     });
 
     data.forEach((row) => {
-      const rowData = headers.map((h) => row[h]);
+      const rowData = headers.map((h) => {
+        if (h === "precio_cliente") return Number(row[h]);
+        if (h === "descuento") return Number(row[h]);
+        return row[h];
+      });
       const newRow = sheet.addRow(rowData);
       newRow.eachCell((cell) => {
         cell.fill = {
@@ -105,7 +121,8 @@ const handleDownloadStyledXLS = async () => {
         };
       });
     });
-
+    formatColumnByHeader(sheet, "precio_cliente", '"$"#,##0.00');
+    formatColumnByHeader(sheet, "descuento", '0.00"%"');
     sheet.addRow([]);
 
     const resumen = [
